@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Suyash Jaiswal — 3D Artist</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet"/>
+<style>
+/* ── RESET & VARS ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+:root {
+  --bg: #0e0d0b;
+  --bg2: #141210;
+  --amber: #f5a623;
+  --amber-dim: #c4841a;
+  --amber-glow: rgba(245,166,35,0.12);
+  --white: #f0ebe3;
+  --muted: #7a7268;
+  --border: rgba(245,166,35,0.15);
+  --card: #131210;
+}
+
+/* ── CUSTOM CURSOR ── */
+* { cursor: none !important; }
+#cursor {
+  width: 12px; height: 12px;
+  background: var(--amber); border-radius: 50%;
+  position: fixed; top: 0; left: 0;
+  pointer-events: none; z-index: 99999;
+  transform: translate(-50%,-50%);
+  transition: transform 0.1s, background 0.2s;
+  mix-blend-mode: difference;
+}
+#cursor-ring {
+  width: 36px; height: 36px;
+  border: 1.5px solid var(--amber); border-radius: 50%;
+  position: fixed; top: 0; left: 0;
+  pointer-events: none; z-index: 99998;
+  transform: translate(-50%,-50%);
+  transition: width 0.3s, height 0.3s, opacity 0.3s;
+  opacity: 0.6;
+}
+body.cursor-hover #cursor { transform: translate(-50%,-50%) scale(2.5); }
+body.cursor-hover #cursor-ring { width: 60px; height: 60px; opacity: 0.25; }
+body.cursor-click #cursor { transform: translate(-50%,-50%) scale(0.6); background: #fff; }
+
+/* ── NOISE ── */
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9990; opacity: 0.35;
+}
+
+body { background: var(--bg); color: var(--white); font-family: 'DM Sans', sans-serif; font-weight: 300; overflow-x: hidden; }
+
+/* ── LOADER ── */
+#loader {
+  position: fixed; inset: 0; background: var(--bg); z-index: 9997;
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1.5rem;
+  transition: opacity 0.6s, visibility 0.6s;
+}
+#loader.hidden { opacity: 0; visibility: hidden; }
+.loader-text { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color: var(--amber); letter-spacing: 0.2em; }
+.loader-bar-wrap { width: 200px; height: 2px; background: rgba(245,166,35,0.15); border-radius: 2px; overflow: hidden; }
+.loader-bar { height: 100%; width: 0; background: var(--amber); border-radius: 2px; animation: loadBar 1.4s ease forwards; }
+@keyframes loadBar { to { width: 100%; } }
+
+/* ── SCROLL REVEAL ── */
+.reveal { opacity: 0; transform: translateY(40px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.visible { opacity: 1; transform: none; }
+.reveal-left { opacity: 0; transform: translateX(-40px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal-left.visible { opacity: 1; transform: none; }
+.reveal-right { opacity: 0; transform: translateX(40px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal-right.visible { opacity: 1; transform: none; }
+
+/* ── SCROLL PROGRESS ── */
+#progress-bar {
+  position: fixed; top: 0; left: 0; height: 2px; background: var(--amber);
+  z-index: 9999; width: 0%; box-shadow: 0 0 8px rgba(245,166,35,0.8);
+}
+
+/* ── BACK TO TOP ── */
+#back-top {
+  position: fixed; bottom: 2rem; right: 2rem; width: 44px; height: 44px;
+  background: var(--amber); color: #0e0d0b; border: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; z-index: 500;
+  opacity: 0; transform: translateY(20px);
+  transition: opacity 0.3s, transform 0.3s;
+  box-shadow: 0 4px 20px rgba(245,166,35,0.4);
+}
+#back-top.visible { opacity: 1; transform: translateY(0); }
+#back-top:hover { background: var(--amber-dim); transform: translateY(-3px) !important; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.4rem 3rem;
+  background: rgba(14,13,11,0.85); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  transition: padding 0.3s;
+}
+nav.scrolled { padding: 1rem 3rem; }
+.nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 0.08em; color: var(--amber); text-decoration: none; }
+.nav-logo span { color: var(--white); }
+.nav-links { display: flex; gap: 2.5rem; list-style: none; }
+.nav-links a {
+  font-size: 0.78rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--muted); text-decoration: none; transition: color 0.2s; position: relative;
+}
+.nav-links a::after { content: ''; position: absolute; bottom: -3px; left: 0; width: 0; height: 1px; background: var(--amber); transition: width 0.3s; }
+.nav-links a:hover { color: var(--amber); }
+.nav-links a:hover::after { width: 100%; }
+.nav-cta { background: var(--amber) !important; color: #0e0d0b !important; padding: 0.55rem 1.4rem !important; font-weight: 500 !important; border-radius: 2px; }
+.nav-cta:hover { background: var(--amber-dim) !important; }
+.nav-cta::after { display: none !important; }
+
+/* hamburger */
+.hamburger { display: none; flex-direction: column; gap: 5px; background: none; border: none; padding: 4px; }
+.hamburger span { display: block; width: 24px; height: 2px; background: var(--white); border-radius: 2px; transition: transform 0.3s, opacity 0.3s; }
+.hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.mobile-menu {
+  display: none; position: fixed; inset: 0; top: 64px;
+  background: rgba(14,13,11,0.97); backdrop-filter: blur(20px);
+  z-index: 99; flex-direction: column; align-items: center; justify-content: center; gap: 2.5rem;
+}
+.mobile-menu.open { display: flex; }
+.mobile-menu a { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 0.15em; color: var(--white); text-decoration: none; transition: color 0.2s; }
+.mobile-menu a:hover { color: var(--amber); }
+.mobile-menu .m-cta { background: var(--amber); color: #0e0d0b !important; padding: 0.8rem 2.5rem; border-radius: 2px; font-size: 1.5rem; }
+
+/* ── HERO ── */
+#hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 8rem 3rem 4rem; position: relative; overflow: hidden; }
+.hero-grid-lines {
+  position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(245,166,35,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(245,166,35,0.04) 1px, transparent 1px);
+  background-size: 60px 60px; pointer-events: none;
+  animation: gridPulse 4s ease-in-out infinite;
+}
+@keyframes gridPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+.hero-glow {
+  position: absolute; width: 700px; height: 700px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,166,35,0.09) 0%, transparent 70%);
+  top: -200px; right: -200px; pointer-events: none;
+  animation: glowPulse 5s ease-in-out infinite;
+}
+@keyframes glowPulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.6; transform:scale(1.1); } }
+.particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.particle { position: absolute; width: 3px; height: 3px; background: var(--amber); border-radius: 50%; opacity: 0; animation: floatUp var(--dur,8s) var(--delay,0s) infinite linear; }
+@keyframes floatUp { 0% { opacity:0; transform:translateY(100vh) scale(0); } 10% { opacity:0.6; } 90% { opacity:0.2; } 100% { opacity:0; transform:translateY(-10vh) scale(1); } }
+
+.hero-eyebrow { font-size: 0.72rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--amber); margin-bottom: 1.2rem; opacity: 0; animation: fadeUp 0.8s 0.8s forwards; }
+.hero-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(5rem, 14vw, 12rem); line-height: 0.92; letter-spacing: 0.02em; color: var(--white); opacity: 0; animation: fadeUp 0.8s 1s forwards; }
+.hero-title .highlight { color: var(--amber); }
+
+/* glitch */
+.glitch { position: relative; display: inline-block; }
+.glitch::before, .glitch::after { content: attr(data-text); position: absolute; top: 0; left: 0; font-family: 'Bebas Neue', sans-serif; font-size: inherit; line-height: inherit; letter-spacing: inherit; }
+.glitch::before { color: #ff0040; clip-path: polygon(0 0,100% 0,100% 45%,0 45%); animation: glitch1 3s infinite; left: 2px; }
+.glitch::after { color: #00f9ff; clip-path: polygon(0 55%,100% 55%,100% 100%,0 100%); animation: glitch2 3s infinite; left: -2px; }
+@keyframes glitch1 { 0%,90%,100%{transform:none;opacity:0;} 92%{transform:translate(-3px,1px) skewX(-5deg);opacity:0.7;} 95%{transform:translate(3px,-1px) skewX(3deg);opacity:0.7;} }
+@keyframes glitch2 { 0%,90%,100%{transform:none;opacity:0;} 93%{transform:translate(3px,2px) skewX(4deg);opacity:0.7;} 96%{transform:translate(-3px,-2px) skewX(-4deg);opacity:0.7;} }
+
+.hero-subtitle { margin-top: 2rem; font-family: 'DM Serif Display', serif; font-style: italic; font-size: clamp(1rem, 2vw, 1.35rem); color: var(--muted); max-width: 500px; opacity: 0; animation: fadeUp 0.8s 1.2s forwards; }
+.hero-actions { margin-top: 3rem; display: flex; gap: 1.2rem; flex-wrap: wrap; opacity: 0; animation: fadeUp 0.8s 1.4s forwards; }
+
+.btn-primary { background: var(--amber); color: #0e0d0b; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; padding: 1rem 2.2rem; text-decoration: none; border-radius: 2px; display: inline-block; position: relative; overflow: hidden; transition: transform 0.2s; }
+.btn-primary::before { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.2); transform: translateX(-100%) skewX(-15deg); transition: transform 0.4s; }
+.btn-primary:hover::before { transform: translateX(120%) skewX(-15deg); }
+.btn-primary:hover { transform: translateY(-2px); }
+.btn-secondary { border: 1px solid var(--border); color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.8rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 1rem 2.2rem; text-decoration: none; border-radius: 2px; display: inline-block; transition: border-color 0.2s, color 0.2s, transform 0.2s; }
+.btn-secondary:hover { border-color: var(--amber); color: var(--amber); transform: translateY(-2px); }
+
+.hero-stats { position: absolute; bottom: 3rem; right: 3rem; display: flex; gap: 3rem; opacity: 0; animation: fadeUp 0.8s 1.6s forwards; }
+.stat-item { text-align: right; }
+.stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 2.8rem; color: var(--amber); line-height: 1; }
+.stat-label { font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-top: 0.2rem; }
+
+/* ── MARQUEE ── */
+.marquee-strip { background: var(--amber); overflow: hidden; padding: 0.7rem 0; white-space: nowrap; }
+.marquee-inner { display: inline-flex; gap: 3rem; animation: marqueeScroll 22s linear infinite; }
+.marquee-inner span { font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 0.2em; color: #0e0d0b; flex-shrink: 0; }
+.marquee-dot { color: rgba(14,13,11,0.35) !important; }
+@keyframes marqueeScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ── SECTIONS ── */
+section { padding: 7rem 3rem; }
+.section-label { font-size: 0.68rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--amber); margin-bottom: 1rem; }
+.section-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.8rem, 6vw, 5rem); line-height: 1; letter-spacing: 0.02em; color: var(--white); margin-bottom: 1.5rem; }
+.amber-line { width: 60px; height: 2px; background: var(--amber); margin-bottom: 2rem; }
+
+/* ── ABOUT ── */
+#about { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.about-grid { display: grid; grid-template-columns: 180px 1fr 1fr; gap: 4rem; align-items: start; max-width: 1200px; margin: 0 auto; }
+
+/* Profile slot */
+.profile-slot { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.profile-frame {
+  width: 160px; height: 160px; border-radius: 50%;
+  border: 2px solid var(--amber); background: var(--card);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem;
+  overflow: hidden; position: relative;
+  box-shadow: 0 0 30px rgba(245,166,35,0.2);
+  transition: box-shadow 0.3s;
+}
+.profile-frame:hover { box-shadow: 0 0 50px rgba(245,166,35,0.4); }
+.profile-frame img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+.profile-icon { opacity: 0.3; }
+.profile-hint { font-size: 0.55rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); opacity: 0.5; text-align: center; line-height: 1.5; padding: 0 10px; }
+.profile-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; color: var(--white); letter-spacing: 0.1em; }
+.profile-badge { background: var(--amber-glow); border: 1px solid var(--border); color: var(--amber); font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.3rem 0.8rem; border-radius: 20px; }
+.online-dot { width: 8px; height: 8px; background: #4caf50; border-radius: 50%; display: inline-block; margin-right: 0.4rem; box-shadow: 0 0 6px #4caf50; animation: pulseDot 2s infinite; }
+@keyframes pulseDot { 0%,100%{ box-shadow:0 0 6px #4caf50; } 50%{ box-shadow:0 0 14px #4caf50; } }
+
+.about-text p { color: var(--muted); line-height: 1.85; font-size: 0.97rem; margin-bottom: 1.2rem; }
+.about-text p strong { color: var(--white); font-weight: 500; }
+.tools-list { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 2rem; }
+.tool-tag { background: var(--amber-glow); border: 1px solid var(--border); color: var(--amber); font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.4rem 0.9rem; border-radius: 2px; transition: background 0.2s, transform 0.2s; }
+.tool-tag:hover { background: rgba(245,166,35,0.2); transform: translateY(-2px); }
+
+.about-card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 2.5rem; transition: border-color 0.3s; }
+.about-card:hover { border-color: var(--amber); }
+.about-card-metric { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+.about-card-metric:last-child { border-bottom: none; }
+.metric-label { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.metric-value { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; color: var(--amber); }
+
+/* ── PACKAGES ── */
+#packages { background: var(--bg); }
+.packages-header { max-width: 600px; margin-bottom: 4rem; }
+.packages-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; max-width: 1100px; margin: 0 auto; }
+.package-card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 2.5rem; position: relative; transition: border-color 0.3s, box-shadow 0.3s; transform-style: preserve-3d; }
+.package-card:hover { border-color: var(--amber); box-shadow: 0 20px 60px rgba(245,166,35,0.1); }
+.package-card.featured { border-color: var(--amber); background: linear-gradient(135deg,#1c1810 0%,#131210 100%); }
+.featured-badge { position: absolute; top: -1px; right: 2rem; background: var(--amber); color: #0e0d0b; font-size: 0.62rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.3rem 0.8rem; border-radius: 0 0 4px 4px; }
+.package-tier { font-size: 0.68rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+.package-name { font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: var(--white); margin-bottom: 0.5rem; }
+.package-price { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color: var(--amber); line-height: 1; margin: 1.2rem 0; }
+.package-price span { font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--muted); font-weight: 300; }
+.package-delivery { font-size: 0.75rem; color: var(--muted); margin-bottom: 1.5rem; }
+.package-delivery strong { color: var(--white); }
+.package-features { list-style: none; display: flex; flex-direction: column; gap: 0.65rem; }
+.package-features li { font-size: 0.82rem; color: var(--muted); display: flex; align-items: center; gap: 0.6rem; }
+.package-features li::before { content: ''; width: 6px; height: 6px; background: var(--amber); border-radius: 50%; flex-shrink: 0; }
+.package-features li.inactive { opacity: 0.35; }
+.package-features li.inactive::before { background: var(--muted); }
+
+/* ── GALLERY ── */
+#gallery { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.gallery-header { max-width: 600px; margin-bottom: 4rem; }
+.gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: auto auto; gap: 1rem; max-width: 1100px; margin: 0 auto; }
+.gallery-item { background: var(--card); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; position: relative; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; transition: border-color 0.3s, transform 0.3s; }
+.gallery-item:hover { border-color: var(--amber); transform: scale(1.02); }
+.gallery-item.tall { grid-row: span 2; aspect-ratio: unset; }
+.gallery-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; color: var(--muted); opacity: 0.4; }
+.gallery-placeholder svg { width: 40px; height: 40px; }
+.gallery-placeholder span { font-size: 0.68rem; letter-spacing: 0.2em; text-transform: uppercase; }
+.gallery-overlay { position: absolute; inset: 0; background: linear-gradient(to top,rgba(14,13,11,0.92) 0%,transparent 60%); display: flex; align-items: flex-end; padding: 1.2rem; opacity: 0; transition: opacity 0.3s; }
+.gallery-item:hover .gallery-overlay { opacity: 1; }
+.gallery-label { font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--amber); }
+
+/* ── REVIEWS ── */
+#reviews { background: var(--bg); }
+.reviews-header { max-width: 600px; margin-bottom: 4rem; }
+.rating-summary { display: flex; align-items: center; gap: 1rem; margin-bottom: 3rem; }
+.rating-big { font-family: 'Bebas Neue', sans-serif; font-size: 5rem; color: var(--amber); line-height: 1; }
+.rating-details { display: flex; flex-direction: column; gap: 0.2rem; }
+.stars { display: flex; gap: 3px; }
+.star { color: var(--amber); font-size: 1.1rem; }
+.rating-count { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.1em; }
+.reviews-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; max-width: 1100px; margin: 0 auto; }
+.review-card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 2rem; transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s; }
+.review-card:hover { border-color: var(--amber); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(245,166,35,0.08); }
+.review-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.2rem; }
+.reviewer-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--amber-glow); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; color: var(--amber); flex-shrink: 0; }
+.reviewer-name { font-size: 0.9rem; font-weight: 500; color: var(--white); }
+.reviewer-country { font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem; }
+.review-stars { display: flex; gap: 2px; margin-bottom: 0.8rem; color: var(--amber); font-size: 0.85rem; }
+.review-text { font-family: 'DM Serif Display', serif; font-style: italic; font-size: 1rem; line-height: 1.65; color: #a09890; }
+.review-meta { display: flex; gap: 1.5rem; margin-top: 1.2rem; padding-top: 1.2rem; border-top: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+.review-meta strong { color: var(--amber); }
+
+/* ── FORMATS ── */
+#formats { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.formats-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start; }
+.format-badges { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 2rem; }
+.format-badge { background: var(--card); border: 1px solid var(--border); color: var(--white); font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 0.1em; padding: 0.6rem 1.2rem; border-radius: 2px; transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s; }
+.format-badge:hover { background: var(--amber-glow); border-color: var(--amber); color: var(--amber); transform: translateY(-3px); }
+.response-box { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 2rem; margin-top: 2rem; }
+.response-row { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+.response-row:last-child { border-bottom: none; }
+.response-key { color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.72rem; }
+.response-val { color: var(--amber); font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 0.08em; }
+
+/* ── CTA ── */
+#contact { background: var(--bg); text-align: center; padding: 8rem 3rem; position: relative; overflow: hidden; }
+.cta-glow { position: absolute; width: 600px; height: 600px; border-radius: 50%; background: radial-gradient(circle,rgba(245,166,35,0.08) 0%,transparent 70%); top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; animation: glowPulse 4s ease-in-out infinite; }
+.cta-inner { position: relative; z-index: 1; }
+.cta-label { font-size: 0.72rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--amber); margin-bottom: 1.5rem; }
+.cta-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(3rem, 8vw, 7rem); line-height: 0.95; color: var(--white); margin-bottom: 1.5rem; }
+.cta-title em { color: var(--amber); font-style: normal; }
+.cta-sub { font-family: 'DM Serif Display', serif; font-style: italic; color: var(--muted); font-size: 1.1rem; margin-bottom: 3rem; }
+
+/* ── FOOTER ── */
+footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex; justify-content: space-between; align-items: center; }
+.footer-logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; color: var(--amber); letter-spacing: 0.08em; }
+.footer-copy { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; }
+
+@keyframes fadeUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  * { cursor: auto !important; }
+  #cursor, #cursor-ring { display: none; }
+  nav { padding: 1.2rem 1.5rem; }
+  .nav-links { display: none; }
+  .hamburger { display: flex; }
+  section { padding: 5rem 1.5rem; }
+  #hero { padding: 7rem 1.5rem 3rem; }
+  .hero-title { font-size: clamp(4rem, 18vw, 7rem); }
+  .hero-stats { position: static; margin-top: 3rem; justify-content: flex-start; gap: 2rem; }
+  .about-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+  .profile-slot { flex-direction: row; align-items: center; gap: 1.5rem; }
+  .profile-frame { width: 100px; height: 100px; flex-shrink: 0; }
+  .packages-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
+  .reviews-grid { grid-template-columns: 1fr; }
+  .gallery-grid { grid-template-columns: 1fr 1fr; }
+  .gallery-item.tall { grid-row: auto; }
+  .formats-inner { grid-template-columns: 1fr; gap: 3rem; }
+  footer { flex-direction: column; gap: 1rem; text-align: center; }
+  #back-top { bottom: 1.2rem; right: 1.2rem; }
+}
+@media (max-width: 480px) {
+  .hero-title { font-size: clamp(3.2rem, 20vw, 5rem); }
+  .gallery-grid { grid-template-columns: 1fr; }
+  .gallery-item.tall { grid-row: auto; }
+  .hero-stats { flex-wrap: wrap; gap: 1.5rem; }
+  .profile-slot { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-text">SJ.</div>
+  <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
+</div>
+
+<!-- SCROLL PROGRESS BAR -->
+<div id="progress-bar"></div>
+
+<!-- CUSTOM CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- BACK TO TOP -->
+<button id="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- NAV -->
+<nav id="navbar">
+  <a href="#hero" class="nav-logo">SJ<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#packages">Packages</a></li>
+    <li><a href="#gallery">Gallery</a></li>
+    <li><a href="#reviews">Reviews</a></li>
+    <li><a href="https://www.fiverr.com/suyashjaiswa217/make-3d-models-as-per-your-requirements" target="_blank" class="nav-cta">Hire on Fiverr</a></li>
+  </ul>
+  <button class="hamburger" id="hamburger" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobile-menu">
+  <a href="#about" class="mob-link">About</a>
+  <a href="#packages" class="mob-link">Packages</a>
+  <a href="#gallery" class="mob-link">Gallery</a>
+  <a href="#reviews" class="mob-link">Reviews</a>
+  <a href="https://www.fiverr.com/suyashjaiswa217/make-3d-models-as-per-your-requirements" target="_blank" class="m-cta">Hire on Fiverr</a>
+</div>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-grid-lines"></div>
+  <div class="hero-glow"></div>
+  <div class="particles" id="particles"></div>
+  <p class="hero-eyebrow">3D Artist · Blender · Game Props & Environments</p>
+  <h1 class="hero-title">SUYASH<br/><span class="highlight glitch" data-text="JAISWAL">JAISWAL</span></h1>
+  <p class="hero-subtitle">Crafting high-quality 3D models, props, and environments — from game assets to cinematic renders.</p>
+  <div class="hero-actions">
+    <a href="https://www.fiverr.com/suyashjaiswa217/make-3d-models-as-per-your-requirements" target="_blank" class="btn-primary">Order on Fiverr</a>
+    <a href="#gallery" class="btn-secondary">View My Work</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat-item"><div class="stat-num" data-count="21">0</div><div class="stat-label">5-Star Reviews</div></div>
+    <div class="stat-item"><div class="stat-num">5.0</div><div class="stat-label">Rating</div></div>
+    <div class="stat-item"><div class="stat-num">1hr</div><div class="stat-label">Response Time</div></div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-strip">
+  <div class="marquee-inner">
+    <span>3D MODELING</span><span class="marquee-dot">◆</span><span>BLENDER ARTIST</span><span class="marquee-dot">◆</span><span>GAME ASSETS</span><span class="marquee-dot">◆</span><span>REALISTIC RENDERS</span><span class="marquee-dot">◆</span><span>PROPS & OBJECTS</span><span class="marquee-dot">◆</span><span>RIGGING</span><span class="marquee-dot">◆</span><span>TEXTURING</span><span class="marquee-dot">◆</span><span>PBR MATERIALS</span><span class="marquee-dot">◆</span><span>FIVERR LEVEL 1</span><span class="marquee-dot">◆</span><span>5.0 RATING</span><span class="marquee-dot">◆</span>
+    <span>3D MODELING</span><span class="marquee-dot">◆</span><span>BLENDER ARTIST</span><span class="marquee-dot">◆</span><span>GAME ASSETS</span><span class="marquee-dot">◆</span><span>REALISTIC RENDERS</span><span class="marquee-dot">◆</span><span>PROPS & OBJECTS</span><span class="marquee-dot">◆</span><span>RIGGING</span><span class="marquee-dot">◆</span><span>TEXTURING</span><span class="marquee-dot">◆</span><span>PBR MATERIALS</span><span class="marquee-dot">◆</span><span>FIVERR LEVEL 1</span><span class="marquee-dot">◆</span><span>5.0 RATING</span><span class="marquee-dot">◆</span>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="about-grid">
+
+    <!-- ★ PROFILE IMAGE SLOT ★ -->
+    <div class="profile-slot reveal">
+      <div class="profile-frame">
+        <!--
+          ════════════════════════════════════
+          HOW TO ADD YOUR PHOTO:
+          Delete the <svg> and <span> below,
+          then add:
+          <img src="your-photo.jpg" alt="Suyash Jaiswal" />
+          ════════════════════════════════════
+        -->
+        <svg class="profile-icon" width="55" height="55" viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="1">
+          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+        <span class="profile-hint">Add your<br/>photo here</span>
+      </div>
+      <div class="profile-name">Suyash</div>
+      <div class="profile-badge"><span class="online-dot"></span>Online</div>
+    </div>
+
+    <div class="about-text reveal-left" style="transition-delay:0.1s">
+      <p class="section-label">About Me</p>
+      <div class="amber-line"></div>
+      <h2 class="section-title">BLENDER<br/>ARTIST</h2>
+      <p>I'm <strong>Suyash Jaiswal</strong>, a 3D artist based in India, creating good-quality models and props with materials and textures using <strong>Blender</strong> as my primary 3D modelling software.</p>
+      <p>Whether you need <strong>optimized props for a game</strong>, realistic 3D models for renders, or assets for any sort of project — you can count on me to deliver on time, every time.</p>
+      <p>Member on Fiverr since August 2021 with a <strong>perfect 5.0 rating</strong> across 21 reviews. Let's make something great together.</p>
+      <div class="tools-list">
+        <span class="tool-tag">Blender</span>
+        <span class="tool-tag">3D Modeling</span>
+        <span class="tool-tag">Texturing</span>
+        <span class="tool-tag">Rigging</span>
+        <span class="tool-tag">Game Assets</span>
+        <span class="tool-tag">Realistic Style</span>
+      </div>
+    </div>
+
+    <div class="reveal-right" style="transition-delay:0.2s">
+      <div class="about-card">
+        <div class="about-card-metric"><span class="metric-label">Overall Rating</span><span class="metric-value">5.0 ★</span></div>
+        <div class="about-card-metric"><span class="metric-label">Communication</span><span class="metric-value">5.0</span></div>
+        <div class="about-card-metric"><span class="metric-label">Recommend Rate</span><span class="metric-value">5.0</span></div>
+        <div class="about-card-metric"><span class="metric-label">Service Accuracy</span><span class="metric-value">4.9</span></div>
+        <div class="about-card-metric"><span class="metric-label">Avg. Response</span><span class="metric-value">~1 hr</span></div>
+        <div class="about-card-metric"><span class="metric-label">Fiverr Level</span><span class="metric-value">Level 1</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PACKAGES -->
+<section id="packages">
+  <div class="packages-header reveal">
+    <p class="section-label">Pricing</p>
+    <div class="amber-line"></div>
+    <h2 class="section-title">CHOOSE<br/>YOUR PLAN</h2>
+  </div>
+  <div class="packages-grid">
+    <div class="package-card reveal" style="transition-delay:0.1s">
+      <p class="package-tier">Tier 01</p>
+      <h3 class="package-name">Basic</h3>
+      <p style="font-size:0.78rem;color:var(--muted);font-style:italic;">Good and affordable</p>
+      <div class="package-price">$20 <span>starting</span></div>
+      <p class="package-delivery">Delivery: <strong>2 days</strong> · 2 Revisions</p>
+      <ul class="package-features">
+        <li>1 initial concept</li><li>2 props</li><li>3D modelling</li>
+        <li>Med-poly meshes with materials & textures (Rigged)</li>
+        <li class="inactive">Enhanced detailing</li>
+      </ul>
+    </div>
+    <div class="package-card featured reveal" style="transition-delay:0.2s">
+      <div class="featured-badge">Most Popular</div>
+      <p class="package-tier">Tier 02</p>
+      <h3 class="package-name">Standard</h3>
+      <p style="font-size:0.78rem;color:var(--muted);font-style:italic;">Best value for most projects</p>
+      <div class="package-price">$25 <span>starting</span></div>
+      <p class="package-delivery">Delivery: <strong>4 days</strong> · 3 Revisions</p>
+      <ul class="package-features">
+        <li>1 initial concept</li><li>4 props</li><li>3D modelling</li>
+        <li>High-poly meshes with materials & textures (Rigged)</li>
+        <li>Enhanced detailing</li>
+      </ul>
+    </div>
+    <div class="package-card reveal" style="transition-delay:0.3s">
+      <p class="package-tier">Tier 03</p>
+      <h3 class="package-name">Premium</h3>
+      <p style="font-size:0.78rem;color:var(--muted);font-style:italic;">Full production-ready pack</p>
+      <div class="package-price">$35 <span>starting</span></div>
+      <p class="package-delivery">Delivery: <strong>7 days</strong> · Unlimited Revisions</p>
+      <ul class="package-features">
+        <li>Multiple concepts included</li><li>8+ props</li><li>3D modelling</li>
+        <li>High-poly with full PBR materials & textures (Rigged)</li>
+        <li>Enhanced detailing</li>
+      </ul>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:3rem;" class="reveal">
+    <a href="https://www.fiverr.com/suyashjaiswa217/make-3d-models-as-per-your-requirements" target="_blank" class="btn-primary">View Full Pricing on Fiverr</a>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section id="gallery">
+  <div class="gallery-header reveal">
+    <p class="section-label">Portfolio</p>
+    <div class="amber-line"></div>
+    <h2 class="section-title">MY<br/>WORK</h2>
+    <p style="color:var(--muted);font-size:0.9rem;line-height:1.7;">A selection of 3D models, game props, and environment assets created in Blender. Replace the placeholders with your best renders.</p>
+  </div>
+  <div class="gallery-grid">
+    <div class="gallery-item tall reveal">
+      <div class="gallery-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Your Image Here</span></div>
+      <div class="gallery-overlay"><span class="gallery-label">Environment Prop</span></div>
+    </div>
+    <div class="gallery-item reveal" style="transition-delay:0.1s">
+      <div class="gallery-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Your Image Here</span></div>
+      <div class="gallery-overlay"><span class="gallery-label">Game Asset</span></div>
+    </div>
+    <div class="gallery-item reveal" style="transition-delay:0.15s">
+      <div class="gallery-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Your Image Here</span></div>
+      <div class="gallery-overlay"><span class="gallery-label">Character Prop</span></div>
+    </div>
+    <div class="gallery-item reveal" style="transition-delay:0.1s">
+      <div class="gallery-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Your Image Here</span></div>
+      <div class="gallery-overlay"><span class="gallery-label">Render Scene</span></div>
+    </div>
+    <div class="gallery-item reveal" style="transition-delay:0.2s">
+      <div class="gallery-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Your Image Here</span></div>
+      <div class="gallery-overlay"><span class="gallery-label">Vehicle Model</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section id="reviews">
+  <div class="reviews-header reveal">
+    <p class="section-label">Client Feedback</p>
+    <div class="amber-line"></div>
+    <h2 class="section-title">WHAT CLIENTS<br/>SAY</h2>
+  </div>
+  <div style="max-width:1100px;margin:0 auto;">
+    <div class="rating-summary reveal">
+      <div class="rating-big">5.0</div>
+      <div class="rating-details">
+        <div class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+        <p class="rating-count" style="margin-top:0.4rem;">21 verified reviews on Fiverr</p>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem;">20 five-star · 1 four-star · 0 negative</p>
+      </div>
+    </div>
+    <div class="reviews-grid">
+      <div class="review-card reveal" style="transition-delay:0.1s">
+        <div class="review-header"><div class="reviewer-avatar">L</div><div><div class="reviewer-name">lucawitteveen</div><div class="reviewer-country">🇳🇱 Netherlands</div></div></div>
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Highly recommend."</p>
+        <div class="review-meta"><span>Price <strong>$58</strong></span><span>Duration <strong>13 days</strong></span></div>
+      </div>
+      <div class="review-card reveal" style="transition-delay:0.2s">
+        <div class="review-header"><div class="reviewer-avatar">S</div><div><div class="reviewer-name">seikorose</div><div class="reviewer-country">🇺🇸 United States</div></div></div>
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Suya was amazing and kept me updated during the entire process! They helped me out greatly and even offered to change the export file. Can't thank you enough."</p>
+        <div class="review-meta"><span>Price <strong>$58</strong></span><span>Duration <strong>2 days</strong></span></div>
+      </div>
+      <div class="review-card reveal" style="transition-delay:0.1s">
+        <div class="review-header"><div class="reviewer-avatar">E</div><div><div class="reviewer-name">eduardo_ota</div><div class="reviewer-country">🇸🇻 El Salvador · Repeat Client</div></div></div>
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Suyash is the best!"</p>
+        <div class="review-meta"><span>Price <strong>$58</strong></span><span>Duration <strong>1 day</strong></span></div>
+      </div>
+      <div class="review-card reveal" style="transition-delay:0.2s">
+        <div class="review-header"><div class="reviewer-avatar">C</div><div><div class="reviewer-name">ccs_chameleon</div><div class="reviewer-country">🇨🇦 Canada · Repeat Client</div></div></div>
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Awesome work as per the usual! If you need any model done, this is the developer you need!"</p>
+        <div class="review-meta"><span>Repeat Client</span><span>3 years ago</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FORMATS -->
+<section id="formats">
+  <div class="formats-inner">
+    <div class="reveal-left">
+      <p class="section-label">Output Formats</p>
+      <div class="amber-line"></div>
+      <h2 class="section-title">EVERY<br/>FORMAT</h2>
+      <p style="color:var(--muted);font-size:0.9rem;line-height:1.7;margin-bottom:1rem;">Delivered in whatever format your pipeline demands.</p>
+      <div class="format-badges">
+        <span class="format-badge">FBX</span><span class="format-badge">OBJ</span><span class="format-badge">BLEND</span><span class="format-badge">STL</span><span class="format-badge">JPG</span><span class="format-badge">PNG</span><span class="format-badge">PDF</span><span class="format-badge">AI</span><span class="format-badge">PSD</span>
+      </div>
+    </div>
+    <div class="reveal-right">
+      <p class="section-label">At a Glance</p>
+      <div class="amber-line"></div>
+      <h2 class="section-title">QUICK<br/>FACTS</h2>
+      <div class="response-box">
+        <div class="response-row"><span class="response-key">Software</span><span class="response-val">Blender</span></div>
+        <div class="response-row"><span class="response-key">Style</span><span class="response-val">Realistic / Game-Ready</span></div>
+        <div class="response-row"><span class="response-key">Dimension</span><span class="response-val">3D</span></div>
+        <div class="response-row"><span class="response-key">Response Time</span><span class="response-val">~1 Hour</span></div>
+        <div class="response-row"><span class="response-key">Member Since</span><span class="response-val">Aug 2021</span></div>
+        <div class="response-row"><span class="response-key">Hourly Rate</span><span class="response-val">$12/hr</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="contact">
+  <div class="cta-glow"></div>
+  <div class="cta-inner reveal">
+    <p class="cta-label">Ready to start?</p>
+    <h2 class="cta-title">LET'S BUILD<br/>SOMETHING <em>GREAT</em></h2>
+    <p class="cta-sub">Place your order on Fiverr and I'll get back to you within the hour.</p>
+    <div style="display:flex;gap:1.2rem;justify-content:center;flex-wrap:wrap;">
+      <a href="https://www.fiverr.com/suyashjaiswa217/make-3d-models-as-per-your-requirements" target="_blank" class="btn-primary">Order on Fiverr</a>
+      <a href="https://www.fiverr.com/suyashjaiswa217" target="_blank" class="btn-secondary">View Profile</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">SJ.</div>
+  <p class="footer-copy">© 2026 Suyash Jaiswal · 3D Artist · Fiverr Level 1 Seller</p>
+  <a href="https://practygo.in" target="_blank" style="font-size:0.72rem;color:var(--muted);letter-spacing:0.1em;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--amber)'" onmouseout="this.style.color='var(--muted)'">Made by Practygo</a>
+</footer>
+
+<script>
+/* LOADER */
+window.addEventListener('load', () => {
+  setTimeout(() => document.getElementById('loader').classList.add('hidden'), 1500);
+});
+
+/* CUSTOM CURSOR */
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; });
+(function animateCursor(){
+  cursor.style.left=mx+'px'; cursor.style.top=my+'px';
+  rx+=(mx-rx)*0.12; ry+=(my-ry)*0.12;
+  ring.style.left=rx+'px'; ring.style.top=ry+'px';
+  requestAnimationFrame(animateCursor);
+})();
+document.querySelectorAll('a,button,.tool-tag,.format-badge,.package-card,.review-card,.gallery-item').forEach(el=>{
+  el.addEventListener('mouseenter',()=>document.body.classList.add('cursor-hover'));
+  el.addEventListener('mouseleave',()=>document.body.classList.remove('cursor-hover'));
+});
+document.addEventListener('mousedown',()=>document.body.classList.add('cursor-click'));
+document.addEventListener('mouseup',()=>document.body.classList.remove('cursor-click'));
+
+/* SCROLL PROGRESS + NAV + BACK-TOP */
+const bar=document.getElementById('progress-bar');
+const backTop=document.getElementById('back-top');
+const navbar=document.getElementById('navbar');
+window.addEventListener('scroll',()=>{
+  const pct=window.scrollY/(document.body.scrollHeight-window.innerHeight)*100;
+  bar.style.width=pct+'%';
+  backTop.classList.toggle('visible',window.scrollY>400);
+  navbar.classList.toggle('scrolled',window.scrollY>60);
+});
+
+/* SCROLL REVEAL */
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); obs.unobserve(e.target); } });
+},{threshold:0.1});
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach(el=>obs.observe(el));
+
+/* COUNT UP */
+const countObs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const target=parseInt(e.target.dataset.count);
+      let n=0; const step=target/90;
+      const t=setInterval(()=>{ n+=step; if(n>=target){n=target;clearInterval(t);} e.target.textContent=Math.floor(n); },16);
+      countObs.unobserve(e.target);
+    }
+  });
+},{threshold:0.5});
+document.querySelectorAll('[data-count]').forEach(el=>countObs.observe(el));
+
+/* FLOATING PARTICLES */
+const pc=document.getElementById('particles');
+for(let i=0;i<18;i++){
+  const p=document.createElement('div'); p.className='particle';
+  p.style.left=Math.random()*100+'%';
+  p.style.setProperty('--dur',(6+Math.random()*8)+'s');
+  p.style.setProperty('--delay',(Math.random()*8)+'s');
+  const s=(1+Math.random()*3)+'px'; p.style.width=s; p.style.height=s;
+  pc.appendChild(p);
+}
+
+/* CARD TILT */
+document.querySelectorAll('.package-card').forEach(card=>{
+  card.addEventListener('mousemove',e=>{
+    const r=card.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width-0.5;
+    const y=(e.clientY-r.top)/r.height-0.5;
+    card.style.transform=`translateY(-8px) rotateY(${x*10}deg) rotateX(${-y*10}deg)`;
+  });
+  card.addEventListener('mouseleave',()=>{ card.style.transform=''; });
+});
+
+/* HAMBURGER */
+const ham=document.getElementById('hamburger');
+const mob=document.getElementById('mobile-menu');
+ham.addEventListener('click',()=>{ ham.classList.toggle('open'); mob.classList.toggle('open'); });
+document.querySelectorAll('.mob-link,.m-cta').forEach(l=>l.addEventListener('click',()=>{ ham.classList.remove('open'); mob.classList.remove('open'); }));
+</script>
+</body>
+</html>
